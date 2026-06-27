@@ -1,6 +1,7 @@
 """Image generation providers."""
 
 import os
+import requests
 from pathlib import Path
 from typing import Optional
 import re
