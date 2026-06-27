@@ -49,22 +49,46 @@ class PollinationsProvider:
             params["seed"] = seed
 
         try:
-            # Request image from Pollinations.ai using direct URL construction
-            # Format: https://image.pollinations.ai/prompt/[prompt]?parameters
-            encoded_prompt = prompt.replace(" ", "%20").replace("&", "%26")
+            # Request image from Pollinations.ai using proper URL encoding
+            # Format: https://image.pollinations.ai/prompt/[prompt]?width=X&height=Y&model=Z
+            from urllib.parse import quote
+            import time
+
+            encoded_prompt = quote(prompt, safe='')
             url = f"{PollinationsProvider.BASE_URL}/prompt/{encoded_prompt}"
 
-            # Add parameters to URL
-            param_str = "&".join([f"{k}={v}" for k, v in params.items() if k != "prompt"])
-            if param_str:
-                url += f"?{param_str}"
+            # Build query parameters (exclude prompt since it's in the URL)
+            query_params = {k: v for k, v in params.items() if k != "prompt"}
 
-            response = requests.get(
-                url,
-                timeout=120,
-                stream=True
-            )
-            response.raise_for_status()
+            # Retry logic for rate limiting (429)
+            max_retries = 3
+            retry_delay = 5
+
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(
+                        url,
+                        params=query_params,
+                        timeout=120,
+                        stream=True
+                    )
+
+                    # If rate limited, wait and retry
+                    if response.status_code == 429:
+                        if attempt < max_retries - 1:
+                            print(f"Rate limited. Waiting {retry_delay} seconds before retry...")
+                            time.sleep(retry_delay)
+                            retry_delay *= 2
+                            continue
+
+                    response.raise_for_status()
+                    break
+
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    raise
 
             # Generate filename with safe characters
             import re
