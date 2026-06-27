@@ -7,7 +7,12 @@ import os
 from mcp.server import Server
 from mcp.types import TextContent, Tool
 
-from .providers import PollinationsProvider
+try:
+    from .providers import StableDiffusionProvider as ImageProvider
+    PROVIDER_NAME = "Stable Diffusion (Local, Free)"
+except ImportError:
+    from .providers import PollinationsProvider as ImageProvider
+    PROVIDER_NAME = "Pollinations.ai (Web-based)"
 
 app = Server("image-gen-mcp")
 OUTPUT_DIR = os.getenv("IMAGE_OUTPUT_DIR", "./generated_images")
@@ -101,7 +106,7 @@ async def call_tool(name: str, arguments: dict):
             seed = arguments.get("seed")
 
             filepath = await asyncio.to_thread(
-                PollinationsProvider.generate,
+                ImageProvider.generate,
                 prompt=prompt,
                 width=width,
                 height=height,
@@ -125,8 +130,8 @@ async def call_tool(name: str, arguments: dict):
             height = arguments.get("height", 256)
 
             filepath = await asyncio.to_thread(
-                PollinationsProvider.generate_pixel_art,
-                prompt=prompt,
+                ImageProvider.generate_pixel_art if hasattr(ImageProvider, 'generate_pixel_art') else ImageProvider.generate,
+                prompt=f"pixel art, retro, 8-bit style: {prompt}",
                 width=width,
                 height=height,
                 output_dir=OUTPUT_DIR
@@ -140,13 +145,23 @@ async def call_tool(name: str, arguments: dict):
 
         elif name == "list_providers":
             providers_info = {
+                "current_provider": PROVIDER_NAME,
                 "providers": [
                     {
-                        "name": "Pollinations",
+                        "name": "Stable Diffusion (Recommended)",
                         "status": "available",
                         "free": True,
-                        "models": PollinationsProvider.list_models(),
-                        "description": "Free image generation with multiple model options"
+                        "local": True,
+                        "models": ["stabilityai/stable-diffusion-2-1", "stabilityai/stable-diffusion-3-medium"],
+                        "description": "Free, open-source, runs locally on your machine. No API key needed."
+                    },
+                    {
+                        "name": "Pollinations.ai",
+                        "status": "fallback",
+                        "free": True,
+                        "local": False,
+                        "models": ["flux", "flux-pro", "flux-realism"],
+                        "description": "Web-based backup if Stable Diffusion is not installed"
                     }
                 ]
             }

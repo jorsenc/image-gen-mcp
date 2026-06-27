@@ -1,9 +1,74 @@
 """Image generation providers."""
 
-import requests
 import os
 from pathlib import Path
 from typing import Optional
+import re
+import time
+
+
+class StableDiffusionProvider:
+    """Stable Diffusion - Free, open-source, local image generation."""
+
+    @staticmethod
+    def generate(
+        prompt: str,
+        width: int = 1024,
+        height: int = 1024,
+        seed: Optional[int] = None,
+        model: str = "stabilityai/stable-diffusion-2-1",
+        output_dir: str = "./generated_images"
+    ) -> str:
+        """Generate image using Stable Diffusion locally (requires diffusers and torch)"""
+        try:
+            from diffusers import StableDiffusionPipeline
+            import torch
+        except ImportError:
+            raise RuntimeError(
+                "diffusers and torch required for local image generation. "
+                "Install with: pip install diffusers torch"
+            )
+
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        # Use CPU or GPU if available
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using device: {device}")
+
+        # Load model
+        print(f"Loading model: {model}...")
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model,
+            torch_dtype=torch.float32,
+            safety_checker=None
+        )
+        pipe = pipe.to(device)
+
+        # Generate image
+        print(f"Generating image with prompt: {prompt}")
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        image = pipe(
+            prompt=prompt,
+            height=height,
+            width=width,
+            num_inference_steps=50,
+            guidance_scale=7.5
+        ).images[0]
+
+        # Save image
+        prompt_slug = re.sub(r'[^a-z0-9_]', '', prompt[:30].replace(" ", "_").lower())
+        if not prompt_slug:
+            prompt_slug = "image"
+        timestamp = int(time.time())
+        filename = f"{prompt_slug}_{timestamp}.png"
+        filepath = os.path.join(output_dir, filename)
+
+        image.save(filepath)
+        print(f"Image saved to: {filepath}")
+
+        return filepath
 
 
 class PollinationsProvider:
