@@ -7,12 +7,8 @@ import os
 from mcp.server import Server
 from mcp.types import TextContent, Tool
 
-try:
-    from .providers import StableDiffusionProvider as ImageProvider
-    PROVIDER_NAME = "Stable Diffusion (Local, Free)"
-except ImportError:
-    from .providers import PollinationsProvider as ImageProvider
-    PROVIDER_NAME = "Pollinations.ai (Web-based)"
+from .providers import PollinationsProvider as ImageProvider
+PROVIDER_NAME = "Pollinations.ai (Free, Web-based, Fast)"
 
 app = Server("image-gen-mcp")
 OUTPUT_DIR = os.getenv("IMAGE_OUTPUT_DIR", "./generated_images")

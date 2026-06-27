@@ -92,7 +92,7 @@ class PollinationsProvider:
             prompt: Description of the image to generate
             width: Image width in pixels (default 1024)
             height: Image height in pixels (default 1024)
-            seed: Random seed for reproducibility (optional)
+            seed: Random seed (ignored - Pollinations.ai doesn't support this parameter)
             model: Model to use - 'flux', 'flux-pro', or 'flux-realism' (default 'flux')
             output_dir: Directory to save the image
 
@@ -102,38 +102,25 @@ class PollinationsProvider:
         # Create output directory if it doesn't exist
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        # Build query parameters
-        params = {
-            "prompt": prompt,
-            "width": width,
-            "height": height,
-            "model": model,
-        }
-
-        if seed is not None:
-            params["seed"] = seed
-
         try:
             # Request image from Pollinations.ai using proper URL encoding
-            # Format: https://image.pollinations.ai/prompt/[prompt]?width=X&height=Y&model=Z
+            # Format: https://image.pollinations.ai/prompt/[prompt]
+            # Note: Pollinations.ai has issues with certain parameters, so we only use prompt
             from urllib.parse import quote
             import time
 
             encoded_prompt = quote(prompt, safe='')
             url = f"{PollinationsProvider.BASE_URL}/prompt/{encoded_prompt}"
 
-            # Build query parameters (exclude prompt since it's in the URL)
-            query_params = {k: v for k, v in params.items() if k != "prompt"}
-
             # Retry logic for rate limiting (429)
             max_retries = 3
             retry_delay = 5
 
+            response = None
             for attempt in range(max_retries):
                 try:
                     response = requests.get(
                         url,
-                        params=query_params,
                         timeout=120,
                         stream=True
                     )
@@ -157,12 +144,11 @@ class PollinationsProvider:
 
             # Generate filename with safe characters
             import re
-            import time
             prompt_slug = re.sub(r'[^a-z0-9_]', '', prompt[:30].replace(" ", "_").lower())
             if not prompt_slug:
                 prompt_slug = "image"
             timestamp = int(time.time())
-            filename = f"{prompt_slug}_{timestamp}.png"
+            filename = f"{prompt_slug}_{timestamp}.jpg"
             filepath = os.path.join(output_dir, filename)
 
             # Save image
